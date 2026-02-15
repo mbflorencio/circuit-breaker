@@ -1,0 +1,19 @@
+services:
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    ports:
+      - "8081:8080"
+    environment:
+      - SERVER_PORT=8080
+
+  client-service:
+    build: ./client-service
+    container_name: client-service
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - PRODUCT_BASE_URL=http://product-service:8080
+    depends_on:
+      - product-service
