@@ -1,3 +1,40 @@
 spring:
   application:
     name: client-service
+
+server:
+  port: ${SERVER_PORT:8080}
+
+product:
+  base-url: ${PRODUCT_BASE_URL:http://localhost:8081}
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 800ms
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        registerHealthIndicator: true
+    instances:
+      productCB:
+        baseConfig: default
+
+logging:
+  level:
+    io.github.resilience4j.circuitbreaker: INFO
