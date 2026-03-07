@@ -1,11 +1,11 @@
 {
   "info": {
-    "_postman_id": "50aa5d10-d8ea-48e9-bef3-c2cbaab489d4",
-    "name": "Demo - Circuit Breaker (Client + Product)",
+    "_postman_id": "698ba986-abef-4906-b27c-42aec144ff1d",
+    "name": "Demo - Circuit Breaker (Client + Product) Correto",
     "description": "Roteiro de demo em sala: baseline, falhas, lentidão, recuperação e métricas.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "274137",
-    "_collection_link": "https://go.postman.co/collection/274137-50aa5d10-d8ea-48e9-bef3-c2cbaab489d4?source=collection_link"
+    "_collection_link": "https://go.postman.co/collection/274137-698ba986-abef-4906-b27c-42aec144ff1d?source=collection_link"
   },
   "item": [
     {
@@ -142,7 +142,7 @@
           "response": []
         },
         {
-          "name": "GET client-service /catalog/1 (para Runner: repetir 20x)",
+          "name": "GET client-service /catalog/batch/1?n=20",
           "event": [
             {
               "listen": "test",
@@ -154,16 +154,12 @@
                   "});",
                   "",
                   "try {",
-                  "  const json = pm.response.json();",
-                  "  const source = json.source;",
-                  "  console.log('Run #' + pm.info.iteration + ' -> source:', source);",
-                  "",
-                  "  // Contadores simples no ambiente",
-                  "  const key = source === 'fallback' ? 'count_fallback' : 'count_product';",
-                  "  const prev = parseInt(pm.environment.get(key) || '0', 10);",
-                  "  pm.environment.set(key, String(prev + 1));",
+                  "  const arr = pm.response.json();",
+                  "  const sources = arr.map(x => x.source);",
+                  "  console.log('batch sources:', sources);",
+                  "  console.log('recovery note:', json.note);",
                   "} catch (e) {",
-                  "  console.log('Resposta não-JSON:', pm.response.text());",
+                  "  console.log(pm.response.text());",
                   "}"
                 ]
               }
@@ -173,13 +169,20 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{client_base_url}}/catalog/1",
+              "raw": "{{client_base_url}}/catalog/batch/1?n=15",
               "host": [
                 "{{client_base_url}}"
               ],
               "path": [
                 "catalog",
+                "batch",
                 "1"
+              ],
+              "query": [
+                {
+                  "key": "n",
+                  "value": "15"
+                }
               ]
             }
           },
@@ -299,7 +302,7 @@
           "response": []
         },
         {
-          "name": "GET client-service /catalog/1 (após aguardar)",
+          "name": "GET client-service /catalog/batch/1?n=20  (após aguardar)",
           "event": [
             {
               "listen": "test",
@@ -311,8 +314,9 @@
                   "});",
                   "",
                   "try {",
-                  "  const json = pm.response.json();",
-                  "  console.log('recovery source:', json.source);",
+                  "  const arr = pm.response.json();",
+                  "  const sources = arr.map(x => x.source);",
+                  "  console.log('batch sources:', sources);",
                   "  console.log('recovery note:', json.note);",
                   "} catch (e) {",
                   "  console.log(pm.response.text());",
@@ -325,13 +329,20 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{client_base_url}}/catalog/1",
+              "raw": "{{client_base_url}}/catalog/batch/1?n=15",
               "host": [
                 "{{client_base_url}}"
               ],
               "path": [
                 "catalog",
+                "batch",
                 "1"
+              ],
+              "query": [
+                {
+                  "key": "n",
+                  "value": "15"
+                }
               ]
             }
           },
@@ -355,6 +366,78 @@
               "path": [
                 "actuator",
                 "metrics"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resilience4j",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const endpoints = [\r",
+                  "        \"resilience4j.circuitbreaker.buffered.calls\",\r",
+                  "        \"resilience4j.circuitbreaker.calls\",\r",
+                  "        \"resilience4j.circuitbreaker.failure.rate\",\r",
+                  "        \"resilience4j.circuitbreaker.not.permitted.calls\",\r",
+                  "        \"resilience4j.circuitbreaker.slow.call.rate\",\r",
+                  "        \"resilience4j.circuitbreaker.slow.calls\",\r",
+                  "        \"resilience4j.circuitbreaker.state\"\r",
+                  "];\r",
+                  "\r",
+                  "let index = pm.environment.get(\"index\") || 0;\r",
+                  "\r",
+                  "pm.environment.set(\"endpoint\", endpoints[index]);\r",
+                  "\r",
+                  "index++;\r",
+                  "\r",
+                  "if (index < endpoints.length) {\r",
+                  "    pm.environment.set(\"index\", index);\r",
+                  "} else {\r",
+                  "    pm.environment.set(\"index\", 0);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "index",
+                  "value": "2",
+                  "type": "text",
+                  "uuid": "8aa88c48-2f4c-4dec-ad58-9fb0e198b433"
+                },
+                {
+                  "key": "endpoint",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "1ec16bfc-10af-4a14-bb50-1a2fbe389002"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{client_base_url}}/actuator/metrics/{{endpoint}}",
+              "host": [
+                "{{client_base_url}}"
+              ],
+              "path": [
+                "actuator",
+                "metrics",
+                "{{endpoint}}"
               ]
             }
           },
