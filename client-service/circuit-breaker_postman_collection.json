@@ -234,6 +234,7 @@
                   "  const arr = pm.response.json();",
                   "  const sources = arr.map(x => x.source);",
                   "  console.log('batch sources:', sources);",
+                  "  console.log('recovery note:', json.note);",
                   "} catch (e) {",
                   "  console.log(pm.response.text());",
                   "}"
@@ -312,6 +313,7 @@
                   "try {",
                   "  const json = pm.response.json();",
                   "  console.log('recovery source:', json.source);",
+                  "  console.log('recovery note:', json.note);",
                   "} catch (e) {",
                   "  console.log(pm.response.text());",
                   "}"
