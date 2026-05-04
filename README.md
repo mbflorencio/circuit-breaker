@@ -33,8 +33,10 @@ docker compose up --build
 - `GET  /catalog/batch/{id}?n=20` → faz N chamadas (bom para disparar o Circuit Breaker rapidamente)
 
 ### Actuator (observabilidade)
-- client-service: `GET /actuator/health`, `GET /actuator/metrics`
+- client-service: `GET /actuator/health`, `GET /actuator/metrics`, `GET /actuator/prometheus`
 - product-service: `GET /actuator/health`
+
+**Para aula sem Postman (só navegador):** com o compose no ar, abra **http://localhost:8080/metricas-demo.html** — página estática que lista automaticamente as métricas cujo nome contém `resilience4j` e os valores em JSON. Antes, dispare chamadas (ex.: `GET /catalog/batch/1?n=30`) para aparecerem contadores.
 
 ## Demonstração (passo a passo)
 Veja o arquivo [DEMO_SCRIPT.md](./DEMO_SCRIPT.md).
