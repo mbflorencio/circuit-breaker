@@ -1,0 +1,364 @@
+{
+  "info": {
+    "_postman_id": "50aa5d10-d8ea-48e9-bef3-c2cbaab489d4",
+    "name": "Demo - Circuit Breaker (Client + Product)",
+    "description": "Roteiro de demo em sala: baseline, falhas, lentidão, recuperação e métricas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "274137",
+    "_collection_link": "https://go.postman.co/collection/274137-50aa5d10-d8ea-48e9-bef3-c2cbaab489d4?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "0) Baseline",
+      "item": [
+        {
+          "name": "GET product-service admin/config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Log amigável no Console",
+                  "try {",
+                  "  const json = pm.response.json();",
+                  "  console.log('product-service config:', json);",
+                  "} catch (e) {",
+                  "  console.log('Resposta não-JSON:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{product_base_url}}/admin/config",
+              "host": [
+                "{{product_base_url}}"
+              ],
+              "path": [
+                "admin",
+                "config"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET client-service /catalog/1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "try {",
+                  "  const json = pm.response.json();",
+                  "  console.log('catalog/1 source:', json.source);",
+                  "  pm.environment.set('last_source', json.source);",
+                  "} catch (e) {",
+                  "  console.log('Resposta não-JSON:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{client_base_url}}/catalog/1",
+              "host": [
+                "{{client_base_url}}"
+              ],
+              "path": [
+                "catalog",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2) Simular falhas (erro -> OPEN)",
+      "item": [
+        {
+          "name": "POST product-service admin/config (fail=80, delay=0)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "try {",
+                  "  console.log('config updated:', pm.response.json());",
+                  "} catch (e) {",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{product_base_url}}/admin/config?failPercent=80&delayMs=0",
+              "host": [
+                "{{product_base_url}}"
+              ],
+              "path": [
+                "admin",
+                "config"
+              ],
+              "query": [
+                {
+                  "key": "failPercent",
+                  "value": "80"
+                },
+                {
+                  "key": "delayMs",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET client-service /catalog/1 (para Runner: repetir 20x)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "try {",
+                  "  const json = pm.response.json();",
+                  "  const source = json.source;",
+                  "  console.log('Run #' + pm.info.iteration + ' -> source:', source);",
+                  "",
+                  "  // Contadores simples no ambiente",
+                  "  const key = source === 'fallback' ? 'count_fallback' : 'count_product';",
+                  "  const prev = parseInt(pm.environment.get(key) || '0', 10);",
+                  "  pm.environment.set(key, String(prev + 1));",
+                  "} catch (e) {",
+                  "  console.log('Resposta não-JSON:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{client_base_url}}/catalog/1",
+              "host": [
+                "{{client_base_url}}"
+              ],
+              "path": [
+                "catalog",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3) Simular lentidão (slow calls -> OPEN)",
+      "item": [
+        {
+          "name": "POST product-service admin/config (fail=0, delay=900)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{product_base_url}}/admin/config?failPercent=0&delayMs=900",
+              "host": [
+                "{{product_base_url}}"
+              ],
+              "path": [
+                "admin",
+                "config"
+              ],
+              "query": [
+                {
+                  "key": "failPercent",
+                  "value": "0"
+                },
+                {
+                  "key": "delayMs",
+                  "value": "900"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET client-service /catalog/batch/1?n=15",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "try {",
+                  "  const arr = pm.response.json();",
+                  "  const sources = arr.map(x => x.source);",
+                  "  console.log('batch sources:', sources);",
+                  "} catch (e) {",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{client_base_url}}/catalog/batch/1?n=15",
+              "host": [
+                "{{client_base_url}}"
+              ],
+              "path": [
+                "catalog",
+                "batch",
+                "1"
+              ],
+              "query": [
+                {
+                  "key": "n",
+                  "value": "15"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4) Recuperação (HALF-OPEN -> CLOSED)",
+      "item": [
+        {
+          "name": "POST product-service admin/config (fail=0, delay=0)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{product_base_url}}/admin/config?failPercent=0&delayMs=0",
+              "host": [
+                "{{product_base_url}}"
+              ],
+              "path": [
+                "admin",
+                "config"
+              ],
+              "query": [
+                {
+                  "key": "failPercent",
+                  "value": "0"
+                },
+                {
+                  "key": "delayMs",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET client-service /catalog/1 (após aguardar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "try {",
+                  "  const json = pm.response.json();",
+                  "  console.log('recovery source:', json.source);",
+                  "} catch (e) {",
+                  "  console.log(pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{client_base_url}}/catalog/1",
+              "host": [
+                "{{client_base_url}}"
+              ],
+              "path": [
+                "catalog",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5) (Opcional) Métricas",
+      "item": [
+        {
+          "name": "GET client-service actuator/metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{client_base_url}}/actuator/metrics",
+              "host": [
+                "{{client_base_url}}"
+              ],
+              "path": [
+                "actuator",
+                "metrics"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

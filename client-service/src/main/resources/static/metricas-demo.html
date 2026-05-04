@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Métricas Resilience4j (demo)</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; background: #0f1419; color: #e6edf3; }
+    body { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; font-weight: 600; }
+    p.hint { color: #8b949e; font-size: 0.9rem; line-height: 1.5; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin: 1rem 0; }
+    button {
+      background: #238636; color: #fff; border: 0; padding: 0.5rem 1rem;
+      border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+    }
+    button:hover { background: #2ea043; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; color: #8b949e; }
+    .err { background: #3d1111; color: #ff7b72; padding: 0.75rem; border-radius: 6px; margin: 1rem 0; }
+    section { margin-top: 1.5rem; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+    section h2 { margin: 0; padding: 0.6rem 1rem; background: #161b22; font-size: 0.95rem; border-bottom: 1px solid #30363d; }
+    pre { margin: 0; padding: 1rem; overflow: auto; font-size: 0.8rem; background: #0d1117; line-height: 1.45; }
+    .status { font-size: 0.85rem; color: #8b949e; }
+    code { background: #21262d; padding: 0.1rem 0.35rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Métricas Resilience4j (só navegador)</h1>
+  <p class="hint">
+    Esta página vem do próprio <strong>client-service</strong> e chama o Actuator na mesma origem
+    (sem Postman, sem instalar nada no Windows além do que já roda o demo — normalmente só
+    <strong>Docker</strong>). Com o compose no ar, abra esta URL no Chrome ou Edge.
+  </p>
+  <p class="hint">
+    Se aparecer vazio, faça algumas chamadas antes, por exemplo:
+    <code>GET /catalog/batch/1?n=30</code> na porta <strong>8080</strong>.
+  </p>
+
+  <div class="toolbar">
+    <button type="button" id="btn">Atualizar métricas</button>
+    <label><input type="checkbox" id="auto" /> Atualizar a cada 5 s</label>
+    <span class="status" id="status"></span>
+  </div>
+  <div id="error"></div>
+  <div id="sections"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const sections = $("sections");
+    const errorEl = $("error");
+    let timer = null;
+
+    function setError(msg) {
+      errorEl.innerHTML = msg ? '<div class="err">' + msg + "</div>" : "";
+    }
+
+    async function fetchJson(path) {
+      const r = await fetch(path, { headers: { Accept: "application/json" } });
+      if (!r.ok) throw new Error(r.status + " " + r.statusText + " em " + path);
+      return r.json();
+    }
+
+    function renderMetric(name, data) {
+      const sec = document.createElement("section");
+      const h2 = document.createElement("h2");
+      h2.textContent = name;
+      const pre = document.createElement("pre");
+      pre.textContent = JSON.stringify(data, null, 2);
+      sec.appendChild(h2);
+      sec.appendChild(pre);
+      sections.appendChild(sec);
+    }
+
+    async function loadAll() {
+      $("btn").disabled = true;
+      $("status").textContent = "Carregando…";
+      setError("");
+      sections.innerHTML = "";
+
+      try {
+        const index = await fetchJson("/actuator/metrics");
+        const names = (index.names || []).filter((n) => n.includes("resilience4j"));
+        if (names.length === 0) {
+          setError(
+            "Nenhuma métrica com nome <code>resilience4j</code> foi encontrada. " +
+              "Confirme se o client-service está com Resilience4j + Micrometer e se já houve chamadas ao circuit breaker."
+          );
+          $("status").textContent = "OK — lista vazia";
+          return;
+        }
+        names.sort();
+        for (const name of names) {
+          const data = await fetchJson("/actuator/metrics/" + encodeURIComponent(name));
+          renderMetric(name, data);
+        }
+        $("status").textContent = "Atualizado em " + new Date().toLocaleTimeString();
+      } catch (e) {
+        setError(
+          "Não foi possível ler o Actuator. " +
+            (e.message || e) +
+            "<br/><br/>Dica: suba o demo com <code>docker compose up --build</code> e use esta página em " +
+            "<code>http://localhost:8080/metricas-demo.html</code> (não abra o arquivo direto do disco)."
+        );
+        $("status").textContent = "";
+      } finally {
+        $("btn").disabled = false;
+      }
+    }
+
+    $("btn").addEventListener("click", loadAll);
+    $("auto").addEventListener("change", () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+      if ($("auto").checked) {
+        loadAll();
+        timer = setInterval(loadAll, 5000);
+      }
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>
