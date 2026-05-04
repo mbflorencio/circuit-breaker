@@ -1,0 +1,80 @@
+{
+  "info": {
+    "_postman_id": "cb-actuator-metrics-001",
+    "name": "Actuator - métricas (Resilience4j)",
+    "description": "Variáveis: baseUrl (ex: http://localhost), port (ex: 8081), circuitBreakerName. Script no 1º request lista métricas resilience4j no console.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost" },
+    { "key": "port", "value": "8081" },
+    { "key": "circuitBreakerName", "value": "meuCircuitBreaker" }
+  ],
+  "item": [
+    {
+      "name": "1 - Todas as métricas (filtra resilience4j no console)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}:{{port}}/actuator/metrics"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const j = pm.response.json();",
+              "const names = (j.names || []).filter(n => n.includes('resilience4j'));",
+              "console.log('Métricas Resilience4j:', names.length);",
+              "names.forEach(n => console.log(' -', n));",
+              "pm.collectionVariables.set('resilience4jMetricNames', JSON.stringify(names));",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 - circuitbreaker.calls (por nome)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}:{{port}}/actuator/metrics/resilience4j.circuitbreaker.calls?tag=name:{{circuitBreakerName}}"
+      }
+    },
+    {
+      "name": "3 - circuitbreaker.state (por nome)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}:{{port}}/actuator/metrics/resilience4j.circuitbreaker.state?tag=name:{{circuitBreakerName}}"
+      }
+    },
+    {
+      "name": "4 - Prometheus scrape (um body com tudo)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}:{{port}}/actuator/prometheus"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 404) {",
+              "  console.warn('404: adicione spring-boot-starter-actuator + micrometer-registry-prometheus e expose prometheus no application.yml');",
+              "} else {",
+              "  const lines = pm.response.text().split('\\n').filter(l => l.includes('resilience4j'));",
+              "  console.log('Linhas resilience4j:', lines.length);",
+              "  lines.slice(0, 80).forEach(l => console.log(l));",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}
